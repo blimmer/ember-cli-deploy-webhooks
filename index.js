@@ -76,6 +76,15 @@ module.exports = {
               },
               method: 'POST',
               headers: {}
+            },
+
+            hipchat: {
+              url: function() {
+                var endpoint = this.endpoint || 'https://api.hipchat.com';
+                return endpoint + '/v2/room/' + this.roomId + '/notification' + '?auth_token=' + this.token;
+              },
+              method: 'POST',
+              headers: {}
             }
           }
         },

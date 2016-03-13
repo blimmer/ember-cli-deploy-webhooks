@@ -283,6 +283,113 @@ describe('webhooks plugin', function() {
             });
         });
       });
+
+      describe('hipchat', function() {
+        it('does not implement any hook by default', function() {
+          services.hipchat = {};
+
+          plugin.beforeHook(context);
+          plugin.configure(context);
+
+          var promise = Promise.all([
+            plugin.setup(context),
+
+            plugin.willDeploy(context),
+
+            plugin.willBuild(context),
+            plugin.build(context),
+            plugin.didBuild(context),
+
+            plugin.willPrepare(context),
+            plugin.prepare(context),
+            plugin.didPrepare(context),
+
+            plugin.willUpload(context),
+            plugin.upload(context),
+            plugin.didUpload(context),
+
+            plugin.willActivate(context),
+            plugin.activate(context),
+            plugin.didActivate(context),
+
+            plugin.didDeploy(context),
+            plugin.teardown(context)
+          ]);
+
+          return assert.isFulfilled(promise)
+            .then(function() {
+              assert.equal(serviceCalls.length, 0);
+            })
+        });
+
+        it('notifies the hipchat service correctly', function() {
+          services.hipchat = {
+            roomId: 1234,
+            token: 'abc123',
+            didDeploy: {
+              body: {
+                message: 'didDeploy'
+              }
+            },
+            didActivate: {
+              body: {
+                message: 'didActivate'
+              }
+            }
+          };
+
+          plugin.beforeHook(context);
+          plugin.configure(context);
+
+          var promise = Promise.all([
+            plugin.didActivate(context),
+            plugin.didDeploy(context)
+          ]);
+
+          return assert.isFulfilled(promise)
+            .then(function() {
+              assert.equal(serviceCalls.length, 2);
+
+              var didActivateMessage = serviceCalls[0];
+              var didDeployMessage   = serviceCalls[1];
+              var url = 'https://api.hipchat.com/v2/room/1234/notification?auth_token=abc123';
+
+              assert.deepEqual(didActivateMessage.body, { message: 'didActivate' });
+              assert.deepEqual(didActivateMessage.url, url);
+              assert.deepEqual(didActivateMessage.method, 'POST');
+
+              assert.deepEqual(didDeployMessage.body, { message: 'didDeploy' });
+              assert.deepEqual(didDeployMessage.url, url);
+              assert.deepEqual(didDeployMessage.method, 'POST');
+            });
+        });
+
+        it('allows customizing the endpoint', function() {
+          services.hipchat = {
+            endpoint: 'https://my-custom-hack.hipchatter.com',
+            roomId: 1234,
+            token: 'abc123',
+            didDeploy: {
+              body: {
+                message: 'didDeploy'
+              }
+            },
+          };
+
+          plugin.beforeHook(context);
+          plugin.configure(context);
+
+          var promise = plugin.didDeploy(context);
+
+          return assert.isFulfilled(promise)
+            .then(function() {
+              assert.equal(serviceCalls.length, 1);
+
+              var call = serviceCalls[0];
+              assert.equal(call.url, 'https://my-custom-hack.hipchatter.com/v2/room/1234/notification?auth_token=abc123');
+            });
+        });
+      });
     });
 
     describe('user configured services', function() {
